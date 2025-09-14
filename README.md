@@ -20,6 +20,8 @@ We use the MovieLens dataset
 
 - Build analytics-ready tables for BI tools such as Looker Studio, Power BI, and Tableau.
 
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
 🏗️ `Architecture`
 
 Layers:
@@ -29,6 +31,8 @@ Layers:
 - Staging Layer – Clean, structured intermediate models.
 
 - Serving Layer – Final transformed models for analytics & dashboards.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
 ⚙️ `Tech Stack`
 
@@ -40,9 +44,13 @@ Layers:
 
 - Visualization: Looker Studio, Power BI, Tableau
 
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
 📂 `Repository Structure`
 
 <img width="1216" height="592" alt="image" src="https://github.com/user-attachments/assets/f7371a03-0995-4a85-bacb-e3610b6871ce" />
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
 🚀 `Workflow`
 
@@ -68,6 +76,8 @@ Extract & Load
 
 - Connect Snowflake to BI tools for dashboards.
 
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
 📊 `Analyses (from analysis/)`
 
 - Top 20 Movies by Average Rating
@@ -78,6 +88,8 @@ Extract & Load
 
 - Genre Popularity & Tag Insights
 
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
 🔑 `Key Learnings & Highlights`
 
 - Implemented modern ELT with dbt + Snowflake.
@@ -87,6 +99,8 @@ Extract & Load
 -  Practiced data quality enforcement with dbt tests.
 
 -  Built analytics-ready layers enabling plug-and-play BI dashboards.
+  
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
 📌 `How to Run`
 
@@ -110,6 +124,8 @@ dbt test
 
 
 Explore analysis queries in analysis/ folder.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
 🎯 `Note`
 
