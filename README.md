@@ -1,6 +1,8 @@
 # Netflix Data Analysis with DBT & Snowflake
 
-<img width="1390" height="569" alt="image" src="https://github.com/user-attachments/assets/1ca751a9-8018-4ac6-a8bf-7533691573c2" />
+<img width="1390" height="569" alt="image" src="https://github.com/user-attachments/assets/1ca751a9-8018-4ac6-a8bf-7533691573c2" /><img width="500" height="280" alt="image" src="https://github.com/user-attachments/assets/587ef394-633f-41d9-b940-1ba38358c028" /><img width="400" height="600" alt="image" src="https://github.com/user-attachments/assets/547c8373-b938-492b-bc37-07153a5243d2" />
+
+
 <img width="1916" height="963" alt="Screenshot 2025-09-14 at 14 10 47" src="https://github.com/user-attachments/assets/e91a6777-4841-463f-b005-f868536ab4cf" />
 <img width="1456" height="863" alt="Screenshot 2025-09-14 at 14 10 05" src="https://github.com/user-attachments/assets/3d3378e2-f446-4172-97a9-38dcce81a907" />
 
