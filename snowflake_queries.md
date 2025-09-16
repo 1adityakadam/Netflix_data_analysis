@@ -1,0 +1,170 @@
+# Snowflake Setup & Data Ingest for MovieLens/Netflix Dataset
+
+```sql
+-- 1) Assume Admin Role
+USE ROLE ACCOUNTADMIN;
+
+-- 2) Create TRANSFORM Role and Grant to ACCOUNTADMIN
+CREATE ROLE IF NOT EXISTS TRANSFORM;
+GRANT ROLE TRANSFORM TO ROLE ACCOUNTADMIN;
+
+-- 3) Create Warehouse and Grant Operate to TRANSFORM
+CREATE WAREHOUSE IF NOT EXISTS COMPUTE_WH;
+GRANT OPERATE ON WAREHOUSE COMPUTE_WH TO ROLE TRANSFORM;
+
+-- 4) Create DBT Service User and Grant Role
+CREATE USER IF NOT EXISTS dbt
+  PASSWORD='#########'   -- replace
+  LOGIN_NAME='dbt'
+  MUST_CHANGE_PASSWORD=FALSE
+  DEFAULT_WAREHOUSE='COMPUTE_WH'
+  DEFAULT_ROLE=TRANSFORM
+  DEFAULT_NAMESPACE='MOVIELENS.RAW'
+  COMMENT='DBT user used for data transformation';
+ALTER USER dbt SET TYPE = LEGACY_SERVICE;
+GRANT ROLE TRANSFORM TO USER dbt;
+
+-- 5) Create Database and Schema
+CREATE DATABASE IF NOT EXISTS MOVIELENS;
+CREATE SCHEMA IF NOT EXISTS MOVIELENS.RAW;
+
+-- 6) Grant Full Access to TRANSFORM
+GRANT ALL ON WAREHOUSE COMPUTE_WH TO ROLE TRANSFORM;
+GRANT ALL ON DATABASE MOVIELENS TO ROLE TRANSFORM;
+GRANT ALL ON ALL SCHEMAS IN DATABASE MOVIELENS TO ROLE TRANSFORM;
+GRANT ALL ON FUTURE SCHEMAS IN DATABASE MOVIELENS TO ROLE TRANSFORM;
+GRANT ALL ON ALL TABLES IN SCHEMA MOVIELENS.RAW TO ROLE TRANSFORM;
+GRANT ALL ON FUTURE TABLES IN SCHEMA MOVIELENS.RAW TO ROLE TRANSFORM;
+
+-- 7) Set Session Context
+USE WAREHOUSE COMPUTE_WH;
+USE DATABASE MOVIELENS;
+USE SCHEMA RAW;
+
+-- 8) Create External Stage for S3
+CREATE STAGE IF NOT EXISTS netflixstage
+  URL='s3://netflixmovies-dataset'
+  CREDENTIALS=(
+    AWS_KEY_ID='************'
+    AWS_SECRET_KEY='************'
+  );
+
+-- 9) Load Movies
+CREATE OR REPLACE TABLE raw_movies (
+  movieId INTEGER,
+  title   STRING,
+  genres  STRING
+);
+COPY INTO raw_movies
+FROM @netflixstage/movies.csv
+FILE_FORMAT=(TYPE=CSV SKIP_HEADER=1 FIELD_OPTIONALLY_ENCLOSED_BY='"');
+
+-- 10) Load Ratings
+CREATE OR REPLACE TABLE raw_ratings (
+  userId INTEGER,
+  movieId INTEGER,
+  rating FLOAT,
+  "timestamp" DATETIME
+);
+COPY INTO raw_ratings
+FROM @netflixstage/ratings.csv
+FILE_FORMAT=(TYPE=CSV SKIP_HEADER=1 FIELD_OPTIONALLY_ENCLOSED_BY='"');
+ALTER TABLE raw_ratings RENAME COLUMN "timestamp" TO "TIMESTAMP";
+SELECT * FROM raw_ratings LIMIT 5;
+
+-- 11) Load Genome Scores
+CREATE OR REPLACE TABLE raw_genome_scores (
+  movieId   INTEGER,
+  tagId     INTEGER,
+  relevance FLOAT
+);
+COPY INTO raw_genome_scores
+FROM @netflixstage/genome-scores.csv
+FILE_FORMAT=(TYPE=CSV SKIP_HEADER=1 FIELD_OPTIONALLY_ENCLOSED_BY='"');
+
+-- 12) Load Genome Tags
+CREATE OR REPLACE TABLE raw_genome_tags (
+  tagId INTEGER,
+  "TAG" STRING
+);
+COPY INTO raw_genome_tags
+FROM @netflixstage/genome-tags.csv
+FILE_FORMAT=(TYPE=CSV SKIP_HEADER=1 FIELD_OPTIONALLY_ENCLOSED_BY='"');
+
+-- 13) Load Links
+CREATE OR REPLACE TABLE raw_links (
+  movieId INTEGER,
+  imdbId  INTEGER,
+  tmdbId  INTEGER
+);
+COPY INTO raw_links
+FROM @netflixstage/links.csv
+FILE_FORMAT=(TYPE=CSV SKIP_HEADER=1 FIELD_OPTIONALLY_ENCLOSED_BY='"');
+
+-- 14) Load Tags
+CREATE OR REPLACE TABLE raw_tags (
+  userId     INTEGER,
+  movieId    INTEGER,
+  tag        STRING,
+  "TIMESTAMP" DATETIME
+);
+COPY INTO raw_tags
+FROM @netflixstage/tags.csv
+FILE_FORMAT=(TYPE=CSV SKIP_HEADER=1 FIELD_OPTIONALLY_ENCLOSED_BY='"')
+ON_ERROR='CONTINUE';
+
+-- 15) Drop Old Dev Artifacts
+DROP VIEW IF EXISTS MOVIELENS.DEV.SRC_GENOME_SCORES;
+DROP VIEW IF EXISTS MOVIELENS.DEV.SRC_GENOME_TAGS;
+DROP VIEW IF EXISTS MOVIELENS.DEV.SRC_LINKS;
+DROP VIEW IF EXISTS MOVIELENS.DEV.SRC_MOVIES;
+DROP VIEW IF EXISTS MOVIELENS.DEV.SRC_RATINGS;
+DROP VIEW IF EXISTS MOVIELENS.DEV.SRC_TAGS;
+DROP TABLE IF EXISTS MOVIELENS.DEV.DIM_MOVIES;
+
+-- 16) Sanity Check on DEV Models
+SELECT * FROM MOVIELENS.DEV.FCT_RATINGS
+ORDER BY rating_timestamp DESC
+LIMIT 5;
+SELECT * FROM MOVIELENS.DEV.SRC_RATINGS
+ORDER BY rating_timestamp DESC
+LIMIT 5;
+
+-- 17) Insert a Sample Rating
+INSERT INTO MOVIELENS.DEV.SRC_RATINGS (user_id, movie_id, rating, rating_timestamp)
+VALUES (87587, 7151, 4.0, '2015-03-31 23:40:02.000 -0700');
+
+-- 18) Query Snapshot History
+SELECT *
+FROM MOVIELENS.SNAPSHOTS.SNAP_TAGS
+WHERE user_id = 18
+ORDER BY user_id, dbt_valid_from DESC;
+
+-- 19) Update a Tag Record
+UPDATE MOVIELENS.DEV.SRC_TAGS
+SET tag = 'Mark Waters Returns',
+    tag_timestamp = CAST(CURRENT_TIMESTAMP() AS TIMESTAMP_NTZ)
+WHERE user_id = 18;
+SELECT * FROM MOVIELENS.DEV.SRC_TAGS
+WHERE user_id = 18;
+
+-- 20) Create movie_analysis Summary Table
+CREATE TABLE IF NOT EXISTS MOVIELENS.DEV.MOVIE_ANALYSIS AS
+WITH ratings_summary AS (
+  SELECT
+    movie_id,
+    AVG(rating) AS average_rating,
+    COUNT(*)    AS total_ratings
+  FROM MOVIELENS.DEV.FCT_RATINGS
+  GROUP BY movie_id
+  HAVING COUNT(*) > 100
+)
+SELECT
+  m.movie_title,
+  rs.average_rating,
+  rs.total_ratings
+FROM ratings_summary rs
+JOIN MOVIELENS.DEV.DIM_MOVIES m
+  ON m.movie_id = rs.movie_id
+ORDER BY rs.average_rating DESC
+LIMIT 20;
